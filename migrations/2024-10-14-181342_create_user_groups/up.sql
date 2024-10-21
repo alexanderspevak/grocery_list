@@ -1,0 +1,7 @@
+CREATE TABLE users_groups(
+  id UUID PRIMARY KEY,
+  group_id UUID NOT NULL,
+  user_id UUID NOT NULL,
+  CONSTRAINT fk_group FOREIGN KEY (group_id) REFERENCES groups(id) ON DELETE CASCADE,
+  CONSTRAINT fk_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+)
