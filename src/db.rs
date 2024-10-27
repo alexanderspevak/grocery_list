@@ -4,7 +4,7 @@ use deadpool_postgres::Pool;
 use serde::Deserialize;
 use tokio_postgres::NoTls;
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Debug)]
 pub struct DbConfig {
     pub pg: deadpool_postgres::Config,
 }

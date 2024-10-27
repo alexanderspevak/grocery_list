@@ -6,6 +6,6 @@ CREATE TABLE users(
   email TEXT NOT NULL,
   password TEXT not NULL,
   image TEXT,
-   UNIQUE(email),
-    UNIQUE(nickname)
+  UNIQUE(email),
+  UNIQUE(nickname)
 )

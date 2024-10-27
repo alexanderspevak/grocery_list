@@ -2,8 +2,8 @@ use super::{
     jwt::{create_jwt, decode_jwt, Claims},
     models,
 };
-use crate::db::models::{user::User, PgDb};
-use crate::messages::{state::StateMessage, websocket::WebsocketMessage};
+use crate::{constants, messages::websocket::WebsocketMessage};
+use crate::{db::models::user::User, messages::workers::WorkerMessage};
 use actix_web::{
     error::ErrorUnauthorized, web, HttpMessage, HttpRequest, HttpResponse, Responder, Result,
 };
@@ -22,7 +22,7 @@ fn get_auth_claims(req: &actix_web::HttpRequest) -> Result<Claims, HttpError> {
         .get("Authorization")
         .and_then(|val| val.to_str().ok()) // Convert to string, ignore errors
         .and_then(|val| val.strip_prefix("Bearer ")) // Strip "Bearer " prefix
-        .ok_or_else(|| HttpError::BadRequest("Unauthorized".to_string()))?; // Unified error handling
+        .ok_or(HttpError::Unauthorized)?; // Unified error handling
 
     Ok(decode_jwt(token)?)
 }
@@ -30,11 +30,14 @@ fn get_auth_claims(req: &actix_web::HttpRequest) -> Result<Claims, HttpError> {
 pub async fn ws(
     req: actix_web::HttpRequest,
     stream: web::Payload,
-    state_sender: mpsc::UnboundedSender<StateMessage>,
+    state_sender: mpsc::UnboundedSender<WorkerMessage>,
 ) -> Result<HttpResponse, actix_web::Error> {
     let claims = get_auth_claims(&req)?;
     let (res, session, mut stream) = actix_ws::handle(&req, stream)?;
     println!("WebSocket handshake successful!"); // Log when handshake is successful
+    state_sender
+        .send(WorkerMessage::ClientLogin(claims.sub, session))
+        .expect(constants::FAILED_TO_SEND_MESSAGE_TO_STATE_WORKER);
 
     // Spawn a task to handle incoming messages
     actix_web::rt::spawn(async move {
@@ -45,13 +48,26 @@ pub async fn ws(
                         Ok(msg) => msg,
                         Err(e) => {
                             eprintln!("Failed to deserialize message: {:?}", e);
-                            continue; // Optionally handle the error
+                            continue;
                         }
                     };
-                    let state_message = StateMessage::from((session.clone(), received_message));
+
+                    if received_message.sender_id() != claims.sub {
+                        println!("Unauthorized websocket message");
+                        state_sender
+                            .send(WorkerMessage::ClientShutdown(claims.sub))
+                            .expect(constants::FAILED_TO_SEND_MESSAGE_TO_STATE_WORKER);
+                    }
+
+                    let state_message = WorkerMessage::WebsocketMessage(received_message);
                     state_sender
                         .send(state_message)
                         .expect("State mpsc sender crashed");
+                }
+                Ok(Message::Close(_)) => {
+                    state_sender
+                        .send(WorkerMessage::ClientShutdown(claims.sub))
+                        .expect(constants::FAILED_TO_SEND_MESSAGE_TO_STATE_WORKER);
                 }
                 _ => {
                     println!("Received other message type");

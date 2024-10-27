@@ -7,6 +7,17 @@ pub mod sql_types {
 }
 
 diesel::table! {
+    group_messages (id) {
+        id -> Uuid,
+        message -> Text,
+        sender -> Uuid,
+        to_group -> Uuid,
+        sequence -> Int4,
+        created_at -> Timestamptz,
+    }
+}
+
+diesel::table! {
     groups (id) {
         id -> Uuid,
         name -> Text,
@@ -24,6 +35,18 @@ diesel::table! {
         group_id -> Uuid,
         unit -> Nullable<ProductUnit>,
         quantity -> Nullable<Numeric>,
+    }
+}
+
+diesel::table! {
+    messages (id) {
+        id -> Uuid,
+        message -> Text,
+        sender -> Uuid,
+        receiver -> Uuid,
+        sequence -> Int4,
+        read -> Nullable<Bool>,
+        created_at -> Timestamptz,
     }
 }
 
@@ -56,6 +79,8 @@ diesel::table! {
     }
 }
 
+diesel::joinable!(group_messages -> groups (to_group));
+diesel::joinable!(group_messages -> users (sender));
 diesel::joinable!(groups -> users (created_by_user));
 diesel::joinable!(items -> groups (group_id));
 diesel::joinable!(items -> products (product_id));
@@ -63,8 +88,10 @@ diesel::joinable!(users_groups -> groups (group_id));
 diesel::joinable!(users_groups -> users (user_id));
 
 diesel::allow_tables_to_appear_in_same_query!(
+    group_messages,
     groups,
     items,
+    messages,
     products,
     users,
     users_groups,

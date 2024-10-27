@@ -7,16 +7,16 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Claims {
-    sub: String,
-    email: String,
-    iat: usize,
-    exp: usize,
+    pub sub: uuid::Uuid,
+    pub email: String,
+    pub iat: usize,
+    pub exp: usize,
 }
 
 impl From<(&uuid::Uuid, &str)> for Claims {
     fn from(value: (&uuid::Uuid, &str)) -> Self {
         Claims {
-            sub: value.0.to_string(),
+            sub: value.0.clone(),
             email: value.1.to_string(),
             iat: Utc::now().timestamp() as usize,
             exp: (Utc::now() + Duration::hours(1)).timestamp() as usize,

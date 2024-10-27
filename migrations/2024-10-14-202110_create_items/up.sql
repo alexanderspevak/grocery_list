@@ -1,4 +1,5 @@
 CREATE TYPE product_unit AS ENUM ('g', 'kg', 'pc', 'l', 'ml');
+
 CREATE TABLE items(
   id UUID PRIMARY KEY,
   product_id UUID NOT NULL,

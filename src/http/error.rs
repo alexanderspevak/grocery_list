@@ -1,5 +1,5 @@
 use actix_web::{
-    error, get,
+    error,
     http::{header::ContentType, StatusCode},
     HttpResponse,
 };
@@ -9,12 +9,15 @@ use std::fmt;
 pub enum HttpError {
     BadRequest(String),
     ServerError(String),
+    Unauthorized,
 }
 
 impl fmt::Display for HttpError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             HttpError::BadRequest(message) => write!(f, "Bad Request: {}", message),
+            HttpError::Unauthorized => write!(f, "Unauthorized"),
+
             HttpError::ServerError(message) => write!(f, "Internal Server Error: {}", message),
         }
     }
@@ -31,6 +34,7 @@ impl error::ResponseError for HttpError {
         match self {
             HttpError::ServerError(_) => StatusCode::INTERNAL_SERVER_ERROR,
             HttpError::BadRequest(_) => StatusCode::BAD_REQUEST,
+            HttpError::Unauthorized => StatusCode::UNAUTHORIZED,
         }
     }
 }

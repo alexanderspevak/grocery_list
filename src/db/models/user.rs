@@ -3,8 +3,6 @@ use serde::Serialize;
 use tokio_postgres::NoTls;
 use uuid::Uuid;
 
-use super::PgDb;
-
 #[derive(Debug, Serialize)]
 pub struct User {
     pub id: uuid::Uuid,
@@ -28,37 +26,6 @@ impl TryFrom<crate::http::models::UserCreateRequest> for User {
         })
     }
 }
-impl PgDb for User {
-    type Output = User;
-    async fn insert(&self, client: &Client<NoTls>) -> Result<(), tokio_postgres::Error> {
-        let stmt =
-            "INSERT into users(id,nickname,name,surname,email,passsword) VALUES($1,$2,$3,$4,$5,&6)";
-        client
-            .execute(
-                stmt,
-                &[
-                    &self.id,
-                    &self.nickname,
-                    &self.name,
-                    &self.surname,
-                    &self.email,
-                    &self.password,
-                ],
-            )
-            .await?;
-        Ok(())
-    }
-
-    async fn get_by_id(
-        id: &uuid::Uuid,
-        client: &Client<NoTls>,
-    ) -> Result<Option<Self::Output>, tokio_postgres::Error> {
-        let stmt = "SELECT * FROM users WHERE id = $1";
-        let rows = client.query(stmt, &[id]).await?;
-
-        Ok(rows.first().map(User::parse_row))
-    }
-}
 
 impl User {
     pub fn parse_row(row: &tokio_postgres::Row) -> User {
@@ -80,5 +47,44 @@ impl User {
         let rows = client.query(stmt, &[&email]).await?;
 
         Ok(rows.first().map(User::parse_row))
+    }
+
+    pub async fn insert(&self, client: &Client<NoTls>) -> Result<(), tokio_postgres::Error> {
+        let stmt =
+            "INSERT into users(id,nickname,name,surname,email,password) VALUES($1,$2,$3,$4,$5,$6)";
+        client
+            .execute(
+                stmt,
+                &[
+                    &self.id,
+                    &self.nickname,
+                    &self.name,
+                    &self.surname,
+                    &self.email,
+                    &self.password,
+                ],
+            )
+            .await?;
+        Ok(())
+    }
+
+    pub async fn get_by_id(
+        user_id: &uuid::Uuid,
+        client: &Client<NoTls>,
+    ) -> Result<Option<User>, tokio_postgres::Error> {
+        let stmt = "SELECT * FROM users WHERE id = $1";
+        let rows = client.query(stmt, &[user_id]).await?;
+
+        Ok(rows.first().map(User::parse_row))
+    }
+
+    pub async fn get_group_ids(
+        user_id: &uuid::Uuid,
+        client: &Client<NoTls>,
+    ) -> Result<Vec<uuid::Uuid>, tokio_postgres::Error> {
+        let stmt = "SELECT group_id FROM users_groups WHERE user_id = $1";
+        let rows = client.query(stmt, &[user_id]).await?;
+
+        Ok(rows.iter().map(|row| row.get("group_id")).collect())
     }
 }

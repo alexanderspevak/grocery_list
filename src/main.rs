@@ -3,11 +3,11 @@ use dotenv::dotenv;
 
 use actix_web::{get, web, App, HttpResponse, HttpServer, Responder};
 use http::handlers::{self, create_user, login};
-// create_user
+mod constants;
 mod db;
 mod http;
 mod messages;
-mod state;
+mod workers;
 
 #[get("/")]
 async fn hello() -> impl Responder {
@@ -23,16 +23,19 @@ async fn main() -> std::io::Result<()> {
     dotenv().ok();
 
     let pool = make_db_pool().await;
+    let database_sender = workers::spawn_database_worker(pool.clone());
+    let message_worker_sender = workers::spawn_message_worker(database_sender, pool.clone());
 
-    let state_sender = state::spawn_state();
     HttpServer::new(move || {
-        let state_sender = state_sender.clone();
+        let message_worker_sender = message_worker_sender.clone();
         App::new()
-            .app_data(pool.clone())
+            .app_data(web::Data::new(pool.clone()))
             .route("/hey", web::get().to(manual_hello))
             .route(
                 "/ws",
-                web::get().to(move |req, stream| handlers::ws(req, stream, state_sender.clone())),
+                web::get().to(move |req, stream| {
+                    handlers::ws(req, stream, message_worker_sender.clone())
+                }),
             )
             .route("/user", web::post().to(create_user))
             .route("/login", web::post().to(login))
