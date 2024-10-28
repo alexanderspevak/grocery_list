@@ -1,5 +1,3 @@
-use core::error;
-
 use chrono::{Duration, Utc};
 use dotenv::dotenv;
 use jsonwebtoken::{decode, encode, errors, DecodingKey, EncodingKey, Header, Validation};

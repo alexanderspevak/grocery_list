@@ -1,9 +1,8 @@
 use deadpool_postgres::Client;
 use serde::Serialize;
 use tokio_postgres::NoTls;
-use uuid::Uuid;
 
-use crate::messages::websocket::CreateGroup;
+use crate::messages::websocket::CreateGroupResponse;
 
 #[derive(Debug, Serialize)]
 pub struct Group {
@@ -12,8 +11,8 @@ pub struct Group {
     pub created_by_user: uuid::Uuid,
 }
 
-impl From<CreateGroup> for Group {
-    fn from(value: CreateGroup) -> Self {
+impl From<CreateGroupResponse> for Group {
+    fn from(value: CreateGroupResponse) -> Self {
         Self {
             created_by_user: value.group_owner_id,
             name: value.name,
@@ -36,6 +35,34 @@ impl Group {
         client
             .execute(stmt, &[&self.id, &self.name, &self.created_by_user])
             .await?;
+        Ok(())
+    }
+
+    pub async fn insert_bulk(
+        client: &Client<NoTls>,
+        groups: &[Group],
+    ) -> Result<(), tokio_postgres::Error> {
+        let mut query = String::from("INSERT INTO groups(id, name, created_by_user) VALUES ");
+        let mut params: Vec<&(dyn tokio_postgres::types::ToSql + Sync)> = Vec::new();
+
+        for (i, group) in groups.iter().enumerate() {
+            if i > 0 {
+                query.push_str(", ");
+            }
+            let param_base = i * 3;
+            query.push_str(&format!(
+                "(${}, ${}, ${})",
+                param_base + 1,
+                param_base + 2,
+                param_base + 3
+            ));
+
+            params.push(&group.id);
+            params.push(&group.name);
+            params.push(&group.created_by_user);
+        }
+
+        client.execute(query.as_str(), &params[..]).await?;
         Ok(())
     }
 

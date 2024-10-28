@@ -1,27 +1,5 @@
 use serde::{Deserialize, Serialize};
-use uuid;
 use validator::Validate;
-#[derive(Debug, Validate, Serialize)]
-
-pub struct User {
-    pub id: uuid::Uuid,
-    pub nickname: String,
-    pub name: String,
-    pub surname: String,
-    pub email: String,
-}
-
-impl From<crate::db::models::user::User> for User {
-    fn from(value: crate::db::models::user::User) -> User {
-        Self {
-            id: value.id,
-            nickname: value.nickname,
-            name: value.name,
-            surname: value.surname,
-            email: value.email,
-        }
-    }
-}
 
 #[derive(Debug, Serialize)]
 pub struct LoginResponse {
