@@ -4,10 +4,12 @@ use actix_web::{
     HttpResponse,
 };
 use std::fmt;
+use tokio_postgres::error::SqlState;
 
 #[derive(Debug)]
 pub enum HttpError {
     BadRequest(String),
+    NotFound,
     ServerError(String),
     Unauthorized,
 }
@@ -17,6 +19,7 @@ impl fmt::Display for HttpError {
         match self {
             HttpError::BadRequest(message) => write!(f, "Bad Request: {}", message),
             HttpError::Unauthorized => write!(f, "Unauthorized"),
+            HttpError::NotFound => write!(f, "Not Found"),
 
             HttpError::ServerError(message) => write!(f, "Internal Server Error: {}", message),
         }
@@ -34,6 +37,7 @@ impl error::ResponseError for HttpError {
         match self {
             HttpError::ServerError(_) => StatusCode::INTERNAL_SERVER_ERROR,
             HttpError::BadRequest(_) => StatusCode::BAD_REQUEST,
+            HttpError::NotFound => StatusCode::NOT_FOUND,
             HttpError::Unauthorized => StatusCode::UNAUTHORIZED,
         }
     }
@@ -71,6 +75,11 @@ impl From<bcrypt::BcryptError> for HttpError {
 
 impl From<tokio_postgres::Error> for HttpError {
     fn from(value: tokio_postgres::Error) -> HttpError {
+        if let Some(db_error) = value.as_db_error() {
+            if db_error.code() == &SqlState::UNIQUE_VIOLATION {
+                return HttpError::BadRequest(value.to_string());
+            }
+        }
         HttpError::ServerError(value.to_string())
     }
 }

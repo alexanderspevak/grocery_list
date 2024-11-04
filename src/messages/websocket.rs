@@ -8,11 +8,8 @@ pub use request::AddItemRequest;
 pub use request::AddItemsRequest;
 pub use request::DirectChatMessageRequest;
 pub use request::GroupChatMessageRequest;
-
 pub use request::WebsocketMessageRequest;
-
 pub use response::AddItemsResponse;
-pub use response::CreateGroupResponse;
 pub use response::DirectChatMessageResponse;
 pub use response::WebsocketMessageResponse;
 
@@ -49,6 +46,7 @@ impl GroupId for RemoveItemsMessage {
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
+#[serde(tag = "type", content = "data", rename_all = "snake_case")]
 pub enum WebsocketMessage {
     Request(WebsocketMessageRequest),
     Response(WebsocketMessageResponse),
@@ -87,11 +85,5 @@ impl From<JoinGroupRequest> for WebsocketMessage {
 impl From<ApproveJoin> for WebsocketMessage {
     fn from(value: ApproveJoin) -> Self {
         Self::Response(WebsocketMessageResponse::ApproveJoin(value))
-    }
-}
-
-impl From<CreateGroupResponse> for WebsocketMessage {
-    fn from(value: CreateGroupResponse) -> Self {
-        Self::Response(WebsocketMessageResponse::CreateGroup(value))
     }
 }

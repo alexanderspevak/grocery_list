@@ -2,7 +2,6 @@ use serde::{Deserialize, Serialize};
 
 use crate::db::models::chat_message::DirectChatMessage;
 
-use super::request::CreateGroupRequest;
 use super::DirectChatMessageRequest;
 use super::GroupChatMessageRequest;
 use super::GroupId;
@@ -121,23 +120,7 @@ impl GroupId for AddItemsResponse {
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
-pub struct CreateGroupResponse {
-    pub group_id: uuid::Uuid,
-    pub group_owner_id: uuid::Uuid,
-    pub name: String,
-}
-
-impl From<CreateGroupRequest> for CreateGroupResponse {
-    fn from(value: CreateGroupRequest) -> Self {
-        Self {
-            group_id: uuid::Uuid::new_v4(),
-            group_owner_id: value.group_owner_id,
-            name: value.name,
-        }
-    }
-}
-
-#[derive(Deserialize, Serialize, Debug, Clone)]
+#[serde(rename_all = "snake_case")]
 pub enum WebsocketMessageResponse {
     DirectChatMessage(DirectChatMessageResponse),
     GroupChatMessage(GroupChatMessageResponse),
@@ -145,9 +128,20 @@ pub enum WebsocketMessageResponse {
     RemoveItems(super::RemoveItemsMessage),
     JoinGroup(super::JoinGroupRequest),
     ApproveJoin(super::ApproveJoin),
-    CreateGroup(CreateGroupResponse),
 }
 
+impl WebsocketMessageResponse {
+    pub fn delayed_send(&self) -> bool {
+        match &self {
+            WebsocketMessageResponse::DirectChatMessage(_) => true,
+            WebsocketMessageResponse::GroupChatMessage(_) => true,
+            WebsocketMessageResponse::AddItems(_) => true,
+            WebsocketMessageResponse::RemoveItems(_) => true,
+            WebsocketMessageResponse::JoinGroup(_) => false,
+            WebsocketMessageResponse::ApproveJoin(_) => false,
+        }
+    }
+}
 impl From<WebsocketMessageRequest> for WebsocketMessageResponse {
     fn from(value: WebsocketMessageRequest) -> Self {
         match value {
@@ -163,9 +157,6 @@ impl From<WebsocketMessageRequest> for WebsocketMessageResponse {
             WebsocketMessageRequest::RemoveItems(msg) => WebsocketMessageResponse::RemoveItems(msg),
             WebsocketMessageRequest::JoinGroup(msg) => WebsocketMessageResponse::JoinGroup(msg),
             WebsocketMessageRequest::ApproveJoin(msg) => WebsocketMessageResponse::ApproveJoin(msg),
-            WebsocketMessageRequest::CreateGroup(msg) => {
-                WebsocketMessageResponse::CreateGroup(CreateGroupResponse::from(msg))
-            }
         }
     }
 }

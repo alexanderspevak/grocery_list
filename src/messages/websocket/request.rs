@@ -30,19 +30,13 @@ pub struct AddItemsRequest {
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
-pub struct CreateGroupRequest {
-    pub group_owner_id: uuid::Uuid,
-    pub name: String,
-}
-
-#[derive(Deserialize, Serialize, Debug, Clone)]
+#[serde(rename_all = "snake_case")]
 pub enum WebsocketMessageRequest {
     DirectChatMessage(DirectChatMessageRequest),
     GroupChatMessage(GroupChatMessageRequest),
     AddItemsRequest(AddItemsRequest),
     RemoveItems(super::RemoveItemsMessage),
     JoinGroup(super::JoinGroupRequest),
-    CreateGroup(CreateGroupRequest),
     ApproveJoin(super::ApproveJoin),
 }
 
@@ -66,7 +60,6 @@ impl WebsocketMessageRequest {
             WebsocketMessageRequest::JoinGroup(msg) => msg.sender_id,
             WebsocketMessageRequest::ApproveJoin(msg) => msg.sender_id,
             WebsocketMessageRequest::DirectChatMessage(msg) => msg.sender_id,
-            WebsocketMessageRequest::CreateGroup(msg) => msg.group_owner_id,
         }
     }
 }

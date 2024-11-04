@@ -3,6 +3,8 @@ use serde::Serialize;
 use tokio_postgres::NoTls;
 use uuid::Uuid;
 
+use super::Group;
+
 #[derive(Debug, Serialize)]
 pub struct User {
     pub id: uuid::Uuid,
@@ -11,6 +13,7 @@ pub struct User {
     pub surname: String,
     pub email: String,
     pub password: String,
+    pub image: Option<String>,
 }
 
 impl TryFrom<crate::http::models::UserCreateRequest> for User {
@@ -23,6 +26,7 @@ impl TryFrom<crate::http::models::UserCreateRequest> for User {
             surname: value.surname,
             email: value.email,
             password: bcrypt::hash(value.password, bcrypt::DEFAULT_COST)?,
+            image: value.image,
         })
     }
 }
@@ -36,6 +40,7 @@ impl User {
             surname: row.get("surname"),
             email: row.get("email"),
             password: row.get("password"),
+            image: row.get("image"),
         }
     }
 
@@ -78,7 +83,7 @@ impl User {
         Ok(rows.first().map(User::parse_row))
     }
 
-    pub async fn get_group_ids(
+    pub async fn get_group_ids_of_user(
         user_id: &uuid::Uuid,
         client: &Client<NoTls>,
     ) -> Result<Vec<uuid::Uuid>, tokio_postgres::Error> {
@@ -86,5 +91,48 @@ impl User {
         let rows = client.query(stmt, &[user_id]).await?;
 
         Ok(rows.iter().map(|row| row.get("group_id")).collect())
+    }
+
+    pub async fn get_unhandled_groups_requests(
+        owner_id: &uuid::Uuid,
+        client: &Client<NoTls>,
+    ) -> Result<Vec<(User, Group)>, tokio_postgres::Error> {
+        let stmt = "
+        SELECT 
+            u.id AS user_id, u.nickname, u.name, u.surname, u.email, u.image, u.password,
+            g.id AS group_id, g.name, g.created_by_user
+        FROM 
+            user_group_join_requests ugjr
+        JOIN 
+            users u ON ugjr.user_id = u.id
+        JOIN 
+            groups g ON ugjr.group_id = g.id
+        WHERE 
+            g.created_by_user = $1
+            AND ugjr.approved = 'unhandled'
+    ";
+        let rows = client.query(stmt, &[owner_id]).await?;
+
+        let mut results = Vec::new();
+        for row in rows {
+            let user = User {
+                id: row.get("user_id"),
+                nickname: row.get("nickname"),
+                name: row.get("name"),
+                surname: row.get("surname"),
+                email: row.get("email"),
+                image: row.get("image"),
+                password: row.get("password"),
+            };
+
+            let group = Group {
+                id: row.get("group_id"),
+                name: row.get("name"),
+                created_by_user: row.get("created_by_user"),
+            };
+
+            results.push((user, group));
+        }
+        Ok(results)
     }
 }

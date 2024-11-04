@@ -2,7 +2,9 @@ use deadpool_postgres::Client;
 use serde::Serialize;
 use tokio_postgres::NoTls;
 
-use crate::messages::websocket::CreateGroupResponse;
+use crate::http::models::CreateGroupRequest;
+
+use super::user::User;
 
 #[derive(Debug, Serialize)]
 pub struct Group {
@@ -11,8 +13,8 @@ pub struct Group {
     pub created_by_user: uuid::Uuid,
 }
 
-impl From<CreateGroupResponse> for Group {
-    fn from(value: CreateGroupResponse) -> Self {
+impl From<CreateGroupRequest> for Group {
+    fn from(value: CreateGroupRequest) -> Self {
         Self {
             created_by_user: value.group_owner_id,
             name: value.name,
@@ -30,39 +32,20 @@ impl Group {
         }
     }
 
-    pub async fn insert(&self, client: &Client<NoTls>) -> Result<(), tokio_postgres::Error> {
+    pub async fn insert(&self, client: &mut Client<NoTls>) -> Result<(), tokio_postgres::Error> {
+        let transaction = client.transaction().await?;
         let stmt = "INSERT into groups(id,name,created_by_user) VALUES($1,$2,$3)";
-        client
+        transaction
             .execute(stmt, &[&self.id, &self.name, &self.created_by_user])
             .await?;
-        Ok(())
-    }
 
-    pub async fn insert_bulk(
-        client: &Client<NoTls>,
-        groups: &[Group],
-    ) -> Result<(), tokio_postgres::Error> {
-        let mut query = String::from("INSERT INTO groups(id, name, created_by_user) VALUES ");
-        let mut params: Vec<&(dyn tokio_postgres::types::ToSql + Sync)> = Vec::new();
+        let user_group_id = uuid::Uuid::new_v4();
+        let stmt = "INSERT into users_groups(id,group_id,user_id) VALUES($1,$2,$3)";
 
-        for (i, group) in groups.iter().enumerate() {
-            if i > 0 {
-                query.push_str(", ");
-            }
-            let param_base = i * 3;
-            query.push_str(&format!(
-                "(${}, ${}, ${})",
-                param_base + 1,
-                param_base + 2,
-                param_base + 3
-            ));
-
-            params.push(&group.id);
-            params.push(&group.name);
-            params.push(&group.created_by_user);
-        }
-
-        client.execute(query.as_str(), &params[..]).await?;
+        transaction
+            .execute(stmt, &[&user_group_id, &self.id, &self.created_by_user])
+            .await?;
+        transaction.commit().await?;
         Ok(())
     }
 
@@ -74,5 +57,33 @@ impl Group {
         let rows = client.query(stmt, &[group_id]).await?;
 
         Ok(rows.first().map(Group::parse_row))
+    }
+
+    pub async fn get_users(
+        group_id: &uuid::Uuid,
+        client: &Client<NoTls>,
+    ) -> Result<Vec<User>, tokio_postgres::Error> {
+        let stmt = "SELECT u.* FROM users u
+             JOIN users_groups ug ON u.id = ug.user_id
+             WHERE ug.group_id = $1";
+
+        Ok(client
+            .query(stmt, &[group_id])
+            .await?
+            .iter()
+            .map(User::parse_row)
+            .collect())
+    }
+
+    pub async fn create_group_request(
+        group_id: &uuid::Uuid,
+        user_id: &uuid::Uuid,
+        client: &Client<NoTls>,
+    ) -> Result<(), tokio_postgres::Error> {
+        let stmt = "INSERT into user_group_join_requests(group_id,user_id) VALUES($1,$2)";
+
+        client.execute(stmt, &[group_id, user_id]).await?;
+
+        Ok(())
     }
 }

@@ -74,23 +74,12 @@ pub fn spawn_message_worker(
                                 }
                             }
                         }
-                        WebsocketMessageResponse::CreateGroup(create_group) => {
-                            if let Some(active_user) =
-                                user_state.get_mut(&create_group.group_owner_id)
-                            {
-                                if send_message(&create_group.clone().into(), active_user)
-                                    .await
-                                    .is_err()
-                                {
-                                    user_state.remove(&create_group.group_owner_id);
-                                    continue;
-                                }
-                            }
-                        }
                     }
-                    database_sender
-                        .send(websocket_response_message)
-                        .expect("Failed to send message to database worker");
+                    if websocket_response_message.delayed_send() {
+                        database_sender
+                            .send(websocket_response_message)
+                            .expect("Failed to send message to database worker");
+                    }
                 }
                 WorkerMessageRequest::ClientShutdown(id) => {
                     user_state.remove(&id);

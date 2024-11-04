@@ -1,10 +1,4 @@
-use super::websocket::{WebsocketMessage, WebsocketMessageRequest};
-
-pub enum WorkerMessage {
-    WebsocketMessage(WebsocketMessage),
-    ClientShutdown(uuid::Uuid),
-    ClientLogin(uuid::Uuid, actix_ws::Session),
-}
+use super::websocket::WebsocketMessageRequest;
 
 pub enum WorkerMessageRequest {
     WebsocketMessage(WebsocketMessageRequest),

@@ -2,6 +2,10 @@
 
 pub mod sql_types {
     #[derive(diesel::query_builder::QueryId, Clone, diesel::sql_types::SqlType)]
+    #[diesel(postgres_type(name = "approval"))]
+    pub struct Approval;
+
+    #[derive(diesel::query_builder::QueryId, Clone, diesel::sql_types::SqlType)]
     #[diesel(postgres_type(name = "product_unit"))]
     pub struct ProductUnit;
 }
@@ -60,6 +64,17 @@ diesel::table! {
 }
 
 diesel::table! {
+    use diesel::sql_types::*;
+    use super::sql_types::Approval;
+
+    user_group_join_requests (user_id, group_id) {
+        user_id -> Uuid,
+        group_id -> Uuid,
+        approved -> Nullable<Approval>,
+    }
+}
+
+diesel::table! {
     users (id) {
         id -> Uuid,
         nickname -> Text,
@@ -84,6 +99,8 @@ diesel::joinable!(group_messages -> users (sender));
 diesel::joinable!(groups -> users (created_by_user));
 diesel::joinable!(items -> groups (group_id));
 diesel::joinable!(items -> products (product_id));
+diesel::joinable!(user_group_join_requests -> groups (group_id));
+diesel::joinable!(user_group_join_requests -> users (user_id));
 diesel::joinable!(users_groups -> groups (group_id));
 diesel::joinable!(users_groups -> users (user_id));
 
@@ -93,6 +110,7 @@ diesel::allow_tables_to_appear_in_same_query!(
     items,
     messages,
     products,
+    user_group_join_requests,
     users,
     users_groups,
 );

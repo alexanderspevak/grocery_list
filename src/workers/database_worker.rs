@@ -5,6 +5,7 @@ use tokio::time::{sleep, Duration};
 use tokio_postgres::NoTls;
 
 use crate::db::models::chat_message::DirectChatMessage;
+use crate::db::models::Group;
 use crate::messages::websocket::DirectChatMessageResponse;
 use crate::messages::websocket::WebsocketMessageResponse;
 
@@ -24,6 +25,7 @@ pub fn spawn_database_worker(pool: Pool<NoTls>) -> mpsc::UnboundedSender<Websock
     let (tx, mut rx) = mpsc::unbounded_channel();
     let storage = Arc::new(Mutex::new(Storage::new()));
     let receiver_storage = storage.clone();
+    let message_pool = pool.clone();
 
     tokio::spawn(async move {
         while let Some(msg) = rx.recv().await {
@@ -32,6 +34,19 @@ pub fn spawn_database_worker(pool: Pool<NoTls>) -> mpsc::UnboundedSender<Websock
                     let mut storage = receiver_storage.lock().await;
                     storage.direct_chat_message.push(chat_message);
                 }
+                // WebsocketMessageResponse::CreateGroup(create_group_response) => {
+                //     let db_group: Group = Group::from(create_group_response);
+                //     let client = if let Ok(client) = message_pool.get().await {
+                //         client
+                //     } else {
+                //         println!("error obtaining client in db worker");
+                //         continue;
+                //     };
+
+                //     if let Err(err) = db_group.insert(&client).await {
+                //         println!("Error inserting group to database {:?}", err);
+                //     }
+                // }
                 _ => {
                     println!("unhandled message received")
                 }
