@@ -1,8 +1,9 @@
 use deadpool_postgres::Client;
 use serde::Serialize;
+use std::fmt;
 use tokio_postgres::NoTls;
 
-use crate::http::models::CreateGroupRequest;
+use crate::http;
 
 use super::user::User;
 
@@ -13,8 +14,8 @@ pub struct Group {
     pub created_by_user: uuid::Uuid,
 }
 
-impl From<CreateGroupRequest> for Group {
-    fn from(value: CreateGroupRequest) -> Self {
+impl From<http::models::CreateGroupRequest> for Group {
+    fn from(value: http::models::CreateGroupRequest) -> Self {
         Self {
             created_by_user: value.group_owner_id,
             name: value.name,
@@ -85,5 +86,45 @@ impl Group {
         client.execute(stmt, &[group_id, user_id]).await?;
 
         Ok(())
+    }
+
+    pub async fn handle_group_request(
+        group_id: &uuid::Uuid,
+        user_id: &uuid::Uuid,
+        resolution: ApproveJoinResolution,
+        client: &Client<NoTls>,
+    ) -> Result<u64, tokio_postgres::Error> {
+        let stmt = "UPDATE user_group_join_requests SET approved = $1 WHERE user_id = $2 AND group_id = $3";
+        let rows_affected = client
+            .execute(stmt, &[&resolution.to_string(), user_id, group_id])
+            .await?;
+
+        Ok(rows_affected)
+    }
+}
+
+enum ApproveJoinResolution {
+    Approved,
+    Unhandled,
+    Unapproved,
+}
+
+impl From<bool> for ApproveJoinResolution {
+    fn from(value: bool) -> Self {
+        if value {
+            ApproveJoinResolution::Approved
+        } else {
+            ApproveJoinResolution::Unapproved
+        }
+    }
+}
+
+impl fmt::Display for ApproveJoinResolution {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            ApproveJoinResolution::Approved => write!(f, "approved"),
+            ApproveJoinResolution::Unhandled => write!(f, "unhandled"),
+            ApproveJoinResolution::Unapproved => write!(f, "unapproved"),
+        }
     }
 }

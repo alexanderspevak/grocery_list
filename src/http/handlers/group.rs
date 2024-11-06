@@ -1,5 +1,5 @@
 use crate::http::models;
-use crate::messages::websocket::JoinGroupRequest;
+use crate::messages::websocket::{ApproveJoin, JoinGroupRequest};
 use crate::{db, messages::workers::WorkerMessageRequest};
 use actix_web::{web, HttpResponse, Result};
 use deadpool_postgres::Pool;
@@ -95,6 +95,50 @@ async fn create_join_group_request(
             }),
         ))
         .expect("Failed to send message to websocket worker");
+
+    Ok(HttpResponse::Ok().finish())
+}
+
+async fn handle_join_request(
+    req: actix_web::HttpRequest,
+    approve_join: web::Json<models::ApproveJoin>,
+    db_pool: web::Data<Pool<NoTls>>,
+    mpsc_sender: web::Data<mpsc::UnboundedSender<WorkerMessageRequest>>,
+) -> Result<HttpResponse, HttpError> {
+    let approve_join = approve_join.into_inner();
+    let claims = super::get_auth_claims(&req)?;
+    let client = db_pool.get().await?;
+
+    let user_group_ids = db::models::User::get_group_ids_of_user(&claims.sub, &client).await?;
+
+    if !user_group_ids.contains(&approve_join.group_id) {
+        return Err(HttpError::BadRequest("Not owner of the group".to_string()));
+    }
+
+    let affected_rows = db::models::Group::handle_group_request(
+        &approve_join.group_id,
+        &approve_join.candidate_id,
+        approve_join.approved.into(),
+        &client,
+    )
+    .await?;
+
+    if affected_rows == 0 {
+        return Err(HttpError::BadRequest(
+            "User has no join request to the group".to_string(),
+        ));
+    }
+
+    let websocket_approve_join = ApproveJoin {
+        candidate_id: approve_join.candidate_id,
+        group_owner: claims.sub,
+        approved: approve_join.approved,
+        group_id: approve_join.group_id,
+    };
+
+    mpsc_sender.send(WorkerMessageRequest::WebsocketMessage(
+        websocket_approve_join.into(),
+    ));
 
     Ok(HttpResponse::Ok().finish())
 }

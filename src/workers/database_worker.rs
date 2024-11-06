@@ -34,19 +34,6 @@ pub fn spawn_database_worker(pool: Pool<NoTls>) -> mpsc::UnboundedSender<Websock
                     let mut storage = receiver_storage.lock().await;
                     storage.direct_chat_message.push(chat_message);
                 }
-                // WebsocketMessageResponse::CreateGroup(create_group_response) => {
-                //     let db_group: Group = Group::from(create_group_response);
-                //     let client = if let Ok(client) = message_pool.get().await {
-                //         client
-                //     } else {
-                //         println!("error obtaining client in db worker");
-                //         continue;
-                //     };
-
-                //     if let Err(err) = db_group.insert(&client).await {
-                //         println!("Error inserting group to database {:?}", err);
-                //     }
-                // }
                 _ => {
                     println!("unhandled message received")
                 }

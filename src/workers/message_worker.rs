@@ -220,7 +220,7 @@ async fn is_approver_valid(pool: &Pool<NoTls>, approve_join_message: &ApproveJoi
         return false;
     };
 
-    if db_group.created_by_user != approve_join_message.sender_id {
+    if db_group.created_by_user != approve_join_message.group_owner {
         println!("Invalid approve join request");
         true
     } else {

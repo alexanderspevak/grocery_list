@@ -20,7 +20,7 @@ pub trait GroupId {
 #[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct ApproveJoin {
     pub candidate_id: uuid::Uuid,
-    pub sender_id: uuid::Uuid,
+    pub group_owner: uuid::Uuid,
     pub approved: bool,
     pub group_id: uuid::Uuid,
 }

@@ -1,5 +1,7 @@
 use serde::{Deserialize, Serialize};
 
+use super::ApproveJoin;
+
 #[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct AddItemRequest {
     pub product_id: uuid::Uuid,
@@ -40,25 +42,20 @@ pub enum WebsocketMessageRequest {
     ApproveJoin(super::ApproveJoin),
 }
 
-impl WebsocketMessageRequest {
-    //     pub fn group_id(&self) -> Option<uuid::Uuid> {
-    //         match self {
-    //             WebsocketMessage::GroupChatMessage(msg) => Some(msg.group_id),
-    //             WebsocketMessage::(msg) => Some(msg.group_id),
-    //             WebsocketMessage::RemoveItems(msg) => Some(msg.group_id),
-    //             WebsocketMessage::JoinGroup(msg) => Some(msg.group_id),
-    //             WebsocketMessage::ApproveJoin(msg) => Some(msg.group_id),
-    //             WebsocketMessage::DirectChatMessage(_) => None,
-    //         }
-    //     }
+impl From<ApproveJoin> for WebsocketMessageRequest {
+    fn from(value: ApproveJoin) -> Self {
+        Self::ApproveJoin(value)
+    }
+}
 
+impl WebsocketMessageRequest {
     pub fn sender_id(&self) -> uuid::Uuid {
         match self {
             WebsocketMessageRequest::GroupChatMessage(msg) => msg.sender_id,
             WebsocketMessageRequest::AddItemsRequest(msg) => msg.sender_id,
             WebsocketMessageRequest::RemoveItems(msg) => msg.sender_id,
             WebsocketMessageRequest::JoinGroup(msg) => msg.sender_id,
-            WebsocketMessageRequest::ApproveJoin(msg) => msg.sender_id,
+            WebsocketMessageRequest::ApproveJoin(msg) => msg.group_owner,
             WebsocketMessageRequest::DirectChatMessage(msg) => msg.sender_id,
         }
     }

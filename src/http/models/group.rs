@@ -1,3 +1,5 @@
+use std::fmt;
+
 use serde::{Deserialize, Serialize};
 use validator::Validate;
 
@@ -25,4 +27,10 @@ impl From<db::models::Group> for Group {
             name: value.name,
         }
     }
+}
+
+pub struct ApproveJoin {
+    pub candidate_id: uuid::Uuid,
+    pub approved: bool,
+    pub group_id: uuid::Uuid,
 }
